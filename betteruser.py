@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, IntegrityError
 from django.utils import timezone
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
