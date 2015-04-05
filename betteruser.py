@@ -1,4 +1,4 @@
-from django.db import models, IntegrityError
+from django.db import models, transaction, IntegrityError
 from django.utils import timezone
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
@@ -64,11 +64,17 @@ class User(AbstractBaseUser, PermissionsMixin):
 			return User.objects.get(email=email)
 		except User.DoesNotExist:
 			try:
-				# Try to create it.
-				user = User(email=email)
-				user.set_unusable_password()
-				user.save()
-				return user
+				# In order to recover from an IntegrityError
+				# we must wrap the error-prone part in a
+				# transaction. Otherwise we can't execute
+				# further queries from the except block.
+				# Not sure why. Occurs w/ Sqlite.
+				with transaction.atomic():
+					# Try to create it.
+					user = User(email=email)
+					user.set_unusable_password()
+					user.save()
+					return user
 			except IntegrityError:
 				# Creation failed (unique key violation on username),
 				# so try to get it again. If this fails, something
