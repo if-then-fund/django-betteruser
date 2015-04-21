@@ -14,5 +14,5 @@ setup(
   description='A better User model and helper functions for Django 1.7+.',
   long_description=open("README.rst").read(),
   keywords="Django User model",
-  install_requires=[],
+  install_requires=["email_validator==0.1.0-rc1"],
 )

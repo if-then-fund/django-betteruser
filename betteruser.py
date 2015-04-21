@@ -6,6 +6,8 @@ from django.contrib.auth.backends import ModelBackend
 
 import enum, re
 
+from email_validator import validate_email, EmailNotValidError
+
 # Custom user model and login backends
 
 class LoginException(Exception):
@@ -92,6 +94,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 				raise InactiveAccount()
 			else:
 				return user
+				
 		else:
 			# Login failed. Why? If a user with that email exists,
 			# return Incorrect.
@@ -101,14 +104,17 @@ class User(AbstractBaseUser, PermissionsMixin):
 			else:
 				# If it's because the email address is itself invalid, clue the user to that.
 				# But only do a simple regex check.
-				if validate_email(email, simple=True) == ValidateEmailResult.Invalid:
-					raise InvalidCredentials()
-				else:
+				try:
+					validate_email(email, check_deliverability=False)
+
 					# The email address is reasonable, but not in our system. Don't
 					# reveal whether the email address is registered or not. Just
 					# say the login is incorrect.
 					raise IncorrectCredentials()
 
+				except EmailNotValidError:
+					# The email's syntax is incorrect.
+					raise InvalidCredentials()
 
 class DirectLoginBackend(ModelBackend):
 	# Register in settings.py!
@@ -118,64 +124,4 @@ class DirectLoginBackend(ModelBackend):
 	supports_anonymous_user = False
 	def authenticate(self, user_object=None):
 		return user_object
-
-# Validation
-
-class ValidateEmailResult(enum.Enum):
-	Invalid = 1
-	Valid = 2
-	Error = 3
-
-def validate_email(email, simple=False):
-	# First check that the email is of a valid form.
-
-	# Based on RFC 2822 and https://github.com/SyrusAkbary/validate_email/blob/master/validate_email.py,
-	# these characters are permitted in email addresses.
-	ATEXT = r'[\w!#$%&\'\*\+\-/=\?\^`\{\|\}~]' # see 3.2.4
-
-	# per RFC 2822 3.2.4
-	DOT_ATOM_TEXT_LOCAL = ATEXT + r'+(?:\.' + ATEXT + r'+)*'
-	DOT_ATOM_TEXT_HOST = ATEXT + r'+(?:\.' + ATEXT + r'+)+' # at least one '.'
-
-	# per RFC 2822 3.4.1
-	ADDR_SPEC = '^%s@(%s)$' % (DOT_ATOM_TEXT_LOCAL, DOT_ATOM_TEXT_HOST)
-
-	m = re.match(ADDR_SPEC, email)
-	if not m:
-		return ValidateEmailResult.Invalid
-
-	if simple:
-		return ValidateEmailResult.Valid
-
-	domain = m.group(1)
-	
-	# Check that the domain resolves to MX records, or the A/AAAA fallback.
-
-	import dns.resolver
-	resolver = dns.resolver.get_default_resolver()
-	try:
-		# Try resolving for MX records and get them in sorted priority order.
-		response = dns.resolver.query(domain, "MX")
-		mtas = sorted([(r.preference, str(r.exchange).rstrip('.')) for r in response])
-	except (dns.resolver.NoNameservers, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
-
-		# If there was no MX record, fall back to an A record.
-		try:
-			response = dns.resolver.query(domain, "A")
-			mtas = [(0, str(r)) for r in response]
-		except (dns.resolver.NoNameservers, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
-
-			# If there was no A record, fall back to an AAAA record.
-			try:
-				response = dns.resolver.query(domain, "AAAA")
-				mtas = [(0, str(r)) for r in response]
-			except (dns.resolver.NoNameservers, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
-				# If there was any problem resolving the domain name,
-				# then the address is not valid.
-				return ValidateEmailResult.Invalid
-	except Exception as e:
-		# Some unhandled condition should not propagate.
-		return ValidateEmailResult.Error
-
-	return ValidateEmailResult.Valid
 
