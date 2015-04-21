@@ -65,6 +65,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 			# Does the user exist?
 			return User.objects.get(email=email)
 		except User.DoesNotExist:
+			# Create a new user.
+
+			# First validate that the email address is deliverable. This
+			# raises an EmailNotValidError if the address is not good.
+			validate_email(email)
+
 			try:
 				# In order to recover from an IntegrityError
 				# we must wrap the error-prone part in a
@@ -94,7 +100,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 				raise InactiveAccount()
 			else:
 				return user
-				
+
 		else:
 			# Login failed. Why? If a user with that email exists,
 			# return Incorrect.
