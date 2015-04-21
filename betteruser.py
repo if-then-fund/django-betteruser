@@ -18,8 +18,13 @@ class InactiveAccount(LoginException):
 	def __str__(self):
 		return "The account is disabled."
 class InvalidCredentials(LoginException):
+	def __init__(self, *args):
+		if len(args) == 0:
+			self.msg = "The email address is not valid. Please check for typos."
+		else:
+			self.msg = args[0]
 	def __str__(self):
-		return "The email address is not valid. Please check for typos."
+		return self.msg
 class IncorrectCredentials(LoginException):
 	def __str__(self):
 		return "The email address and password did not match an account here."
@@ -118,9 +123,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 					# say the login is incorrect.
 					raise IncorrectCredentials()
 
-				except EmailNotValidError:
+				except EmailNotValidError as e:
 					# The email's syntax is incorrect.
-					raise InvalidCredentials()
+					raise InvalidCredentials(str(e))
 
 class DirectLoginBackend(ModelBackend):
 	# Register in settings.py!
