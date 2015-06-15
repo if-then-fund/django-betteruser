@@ -29,21 +29,24 @@ class IncorrectCredentials(LoginException):
 	def __str__(self):
 		return "The email address and password did not match an account here."
 
-class UserManager(models.Manager):
+class UserManagerBase(models.Manager):
+	def _get_user_class(self):
+		return User
+
 	# used by django.contrib.auth.backends.ModelBackend
 	def get_by_natural_key(self, key):
-		return User.objects.get(email=key)
+		return self._get_user_class().objects.get(email=key)
 
 	# support the createsuperuser management command.
 	def create_superuser(self, email, password, **extra_fields):
-		user = User(email=email)
+		user = self._get_user_class()(email=email)
 		user.is_staff = True
 		user.is_superuser = True
 		user.set_password(password)
 		user.save()
 		return user
 
-class User(AbstractBaseUser, PermissionsMixin):
+class UserBase(AbstractBaseUser, PermissionsMixin):
 	"""Our user model, where the primary identifier is an email address."""
 	# https://github.com/django/django/blob/master/django/contrib/auth/models.py#L395
 	email = models.EmailField(unique=True)
@@ -57,12 +60,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 	def get_full_name(self): return self.email
 	def get_short_name(self): return self.email
 	class Meta:
+		abstract = True
 		verbose_name = 'user'
 		verbose_name_plural = 'users'
-	objects = UserManager()
+	# Normally the object field would be defined here but the subclass
+	# must set it to a Manager that knows what class this is for.
 
-	@staticmethod
-	def get_or_create(email):
+	@classmethod # first argument is the concrete User class
+	def get_or_create(User, email):
 		# Get or create a new User for the email address. The User table
 		# is not locked, so handle concurrency optimistically. The rest is
 		# based on Django's default create_user.
@@ -94,8 +99,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 				# weird happened --- just raise an exception then.
 				return User.objects.get(email=email)
 
-	@staticmethod
-	def authenticate(email, password):
+	@classmethod # first argument is the concrete User class
+	def authenticate(User, email, password):
 		# Returns an authenticated User object for the email and password,
 		# or raises a LoginException on failure.
 		user = authenticate(email=email, password=password)

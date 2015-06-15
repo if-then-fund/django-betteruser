@@ -14,13 +14,24 @@ Installation
 
 * Copy ``betteruser.py`` into your app. It must be inside an app, and for simpliciy this project doesn't provide an app. You need to move it into your own app.
 * In ``settings.py``, set ``AUTH_USER_MODEL`` to ``appname.betteruser.User``.
+* Implement your concrete User class. In your own `models.py`, create a derived User class where you can add your own additional fields.
+
+	from betteruser import User as UserBase, UserManagerBase
+
+	class UserManager(UserManagerBase):
+		def _get_user_class(self):
+			return User
+
+	class User(UserBase):
+		objects = UserManager()
+		# your additional model fields here, if any
 
 Usage
 -----
 
 Creating a user::
 
-	from yourapp.betteruser import validate_email, ValidateEmailResult, User
+	from yourapp.betteruser import validate_email, ValidateEmailResult
 	result = validate_email(email)
 	if result == ValidateEmailResult.Invalid:
 		raise ValueError("Email address is not valid.") # syntax or DNS error
@@ -30,7 +41,7 @@ Creating a user::
 Logging a user in::
 
 	from django.contrib.auth import login
-	from yourapp.betteruser import User, InactiveAccount, InvalidCredentials, IncorrectCredentials
+	from yourapp.betteruser import InactiveAccount, InvalidCredentials, IncorrectCredentials
 
 	def do_login(request):
 		email = request.POST['email'].strip()
