@@ -3,11 +3,12 @@ django-betteruser
 
 A better User model and helper functions for Django 1.7+.
 
-* Email/password login (rather than username/password).
-* Email address validation function that checks the form of the address and also that the domain part resolves.
-* ``User.get_or_create(email)`` helper function handles concurrency better.
-* ``User.authenticate(email, password)`` helper function takes care of the usual logic: call authenticate(); is the user active?
-* Provides a DirectLoginBackend so that you can ``authenticate(user_object=user)`` user objects directly.
+* Provides an abstract base User model that you can attach your own model fields too.
+* The model is based around email/password login rather than username/password.
+* Email address validation in ``User.get_or_create`` and ``User.authenticate`` checks the form of the address and also that the domain part resolves.
+* ``User.get_or_create(email)`` handles concurrency better than Django's user creation helper method.
+* ``User.authenticate(email, password)`` takes care of the usual logic when calling authenticate().
+* Provides a DirectLoginBackend so that you can ``authenticate(user_object=user)`` user objects directly when you have authenticated a user yourself by other means.
 
 Installation
 ------------
