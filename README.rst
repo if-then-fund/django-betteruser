@@ -31,12 +31,12 @@ Usage
 
 Creating a user::
 
-	from yourapp.betteruser import validate_email, ValidateEmailResult
-	result = validate_email(email)
-	if result == ValidateEmailResult.Invalid:
-		raise ValueError("Email address is not valid.") # syntax or DNS error
-	else:
+	from email_validator import EmailNotValidError
+	try:
 		user = User.get_or_create(email)
+	except EmailNotValidError:
+		# Do stuff.
+		# See https://github.com/JoshData/python-email-validator.
 
 Logging a user in::
 
