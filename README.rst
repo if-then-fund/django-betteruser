@@ -14,7 +14,7 @@ Installation
 ------------
 
 * Copy ``betteruser.py`` into your app. It must be inside an app, and for simpliciy this project doesn't provide an app. You need to move it into your own app.
-* In ``settings.py``, set ``AUTH_USER_MODEL`` to ``appname.betteruser.User``.
+* In ``settings.py``, set ``AUTH_USER_MODEL`` to ``appname.betteruser.User`` and set ``VALIDATE_EMAIL_DELIVERABILITY`` to ``True`` or ``False`` if you want email address validation to check that the domain part of addresses resolve (handy to turn off during unit testing to avoid network accesses).
 * Implement your concrete User class. In your own `models.py`, create a derived User class where you can add your own additional fields.
 
 	from betteruser import User as UserBase, UserManagerBase

@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.contrib.auth.backends import ModelBackend
+from django.conf import settings
 
 import enum, re
 
@@ -79,7 +80,7 @@ class UserBase(AbstractBaseUser, PermissionsMixin):
 
 			# First validate that the email address is deliverable. This
 			# raises an EmailNotValidError if the address is not good.
-			validate_email(email)
+			validate_email(email, check_deliverability=settings.VALIDATE_EMAIL_DELIVERABILITY)
 
 			try:
 				# In order to recover from an IntegrityError
