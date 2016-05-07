@@ -69,18 +69,26 @@ class UserBase(AbstractBaseUser, PermissionsMixin):
 
 	@classmethod # first argument is the concrete User class
 	def get_or_create(User, email):
-		# Get or create a new User for the email address. The User table
-		# is not locked, so handle concurrency optimistically. The rest is
-		# based on Django's default create_user.
+		# Normalize the email address prior to checking if it is in the database.
+		# See the email validation library's README for why that's important,
+		# particularly for internationalized addresses.
+		#
+		# If the email address is not valid, raise an EmailNotValidError.
+		email = validate_email(email, check_deliverability=False)["email"]
+
+		# Fetch an existing User for this email address, if present.
 		try:
 			# Does the user exist?
 			return User.objects.get(email=email)
 		except User.DoesNotExist:
 			# Create a new user.
 
-			# First validate that the email address is deliverable. This
-			# raises an EmailNotValidError if the address is not good.
-			validate_email(email, check_deliverability=settings.VALIDATE_EMAIL_DELIVERABILITY)
+			# We've already validated the email address's syntax and normalized it.
+			# If we're configured to also check deliverability, do that now. We skip
+			# that during login. This raises an EmailNotValidError (in particlar a
+			# EmailUndeliverableError) on failure.
+			if settings.VALIDATE_EMAIL_DELIVERABILITY:
+				validate_email(email, check_deliverability=True)
 
 			try:
 				# In order to recover from an IntegrityError
@@ -104,34 +112,28 @@ class UserBase(AbstractBaseUser, PermissionsMixin):
 	def authenticate(User, email, password):
 		# Returns an authenticated User object for the email and password,
 		# or raises a LoginException on failure.
+
+		# Normalize the email address prior to checking if it is in the database.
+		# See the email validation library's README for why that's important,
+		# particularly for internationalized addresses.
+		try:
+			email = validate_email(email, check_deliverability=False)["email"]
+		except EmailNotValidError as e:
+			raise InvalidCredentials(str(e))
+
+		# Run Django's usual authenticate function.
 		user = authenticate(email=email, password=password)
-		if user is not None:
-			if not user.is_active:
-				# Account is disabled.
-				raise InactiveAccount()
-			else:
-				return user
+		
+		if user is None:
+			# Email/password pair not found in database.
+			raise IncorrectCredentials()
+	
+		if not user.is_active:
+			# Account is disabled.
+			raise InactiveAccount()
 
-		else:
-			# Login failed. Why? If a user with that email exists,
-			# return Incorrect.
-			if User.objects.filter(email=email).exists():
-				raise IncorrectCredentials()
+		return user
 
-			else:
-				# If it's because the email address is itself invalid, clue the user to that.
-				# But only do a simple regex check.
-				try:
-					validate_email(email, check_deliverability=False)
-
-					# The email address is reasonable, but not in our system. Don't
-					# reveal whether the email address is registered or not. Just
-					# say the login is incorrect.
-					raise IncorrectCredentials()
-
-				except EmailNotValidError as e:
-					# The email's syntax is incorrect.
-					raise InvalidCredentials(str(e))
 
 class DirectLoginBackend(ModelBackend):
 	# Register in settings.py!
